@@ -73,3 +73,47 @@ export function groqModel(): string {
 export function canExtract(): boolean {
   return groqApiKey() !== "";
 }
+
+// ---------------------------------------------------------------------------
+// ElevenLabs — text to speech (the app reading the day back)
+// ---------------------------------------------------------------------------
+
+/** Multilingual model; it handles Devanagari Hindi. */
+const DEFAULT_TTS_MODEL = "eleven_multilingual_v2";
+
+export function elevenLabsTtsModel(): string {
+  const value = (process.env.ELEVENLABS_TTS_MODEL ?? "").trim();
+  return value === "" ? DEFAULT_TTS_MODEL : value;
+}
+
+/**
+ * Which voice to speak with.
+ *
+ * There is no safe default. On the free plan ElevenLabs refuses *library*
+ * voices over the API (HTTP 402), so the id has to be one that exists in this
+ * account's own voice list. Empty means "use the browser's voice instead".
+ */
+export function elevenLabsVoiceId(): string {
+  return (process.env.ELEVENLABS_VOICE_ID ?? "").trim();
+}
+
+/**
+ * Should we skip ElevenLabs and let the browser speak?
+ *
+ * Same safety rule as transcription: speaking costs roughly one credit per
+ * character, so a real call has to be switched on deliberately and needs both
+ * a key and a voice id.
+ */
+export function shouldMockSpeech(): boolean {
+  const optedOut = (process.env.AUDITLY_MOCK_SPEECH ?? "").trim().toLowerCase() === "false";
+  if (!optedOut) return true;
+  return elevenLabsApiKey() === "" || elevenLabsVoiceId() === "";
+}
+
+/** Why the browser voice is being used, for the UI and the server log. */
+export function speechMockReason(): string | null {
+  if (!shouldMockSpeech()) return null;
+  if (elevenLabsApiKey() === "") return "ELEVENLABS_API_KEY is empty in .env.local";
+  if (elevenLabsVoiceId() === "") return "ELEVENLABS_VOICE_ID is empty in .env.local";
+  return "AUDITLY_MOCK_SPEECH is not set to false in .env.local";
+}

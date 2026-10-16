@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Suspense, cache } from "react";
 
 import MicButton from "@/components/MicButton";
+import SpeakButton from "@/components/SpeakButton";
 import SummaryCards from "@/components/SummaryCards";
 import TodayDate from "@/components/TodayDate";
 import TransactionList from "@/components/TransactionList";
@@ -21,6 +22,8 @@ export default function HomePage() {
       <Suspense fallback={<SummarySkeleton />}>
         <TodaySummary />
       </Suspense>
+
+      <SpeakButton />
 
       <section className="flex flex-col items-center gap-5 rounded-2xl border border-stone-200 bg-white py-8 dark:border-stone-700 dark:bg-stone-900">
         <MicButton />

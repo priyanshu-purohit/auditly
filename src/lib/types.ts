@@ -111,3 +111,12 @@ export type ExtractResponse = {
    */
   extracted: boolean;
 };
+
+/** What POST /api/speak sends back. */
+export type SpeakResponse = {
+  /** The Devanagari sentence being spoken, so it can be shown as a caption. */
+  text: string;
+  /** MP3 bytes as base64 when ElevenLabs spoke; null when the browser should. */
+  audioBase64: string | null;
+  source: "elevenlabs" | "browser";
+};
