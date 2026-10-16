@@ -6,9 +6,13 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "check:extract": "node scripts/check-extract.mjs",
+    "check:db": "node scripts/check-db.mjs",
+    "db:inspect": "node scripts/db-inspect.mjs"
   },
   "dependencies": {
+    "mongoose": "^9.11.2",
     "next": "16.4.0",
     "react": "19.3.0",
     "react-dom": "19.3.0"

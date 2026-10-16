@@ -5,11 +5,9 @@ import { useRef, useState } from "react";
 
 import { TYPE_LABELS, formatRupees, rupeesToPaise } from "@/lib/format";
 import { mockVoiceSession } from "@/lib/mock-data";
-import type { ExtractedRecord, ProductUnit, TransactionType } from "@/lib/types";
+import type { ExtractedRecord, ProductUnit } from "@/lib/types";
+import { PRODUCT_UNITS, TRANSACTION_TYPES } from "@/lib/units";
 import { clearVoiceSession, usePendingVoiceSession } from "@/lib/voice-session";
-
-const TYPES: TransactionType[] = ["sale", "purchase", "expense"];
-const UNITS: ProductUnit[] = ["kg", "litre", "piece", "packet"];
 
 const inputClass =
   "rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-stone-900 placeholder:text-stone-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 focus:outline-none dark:border-stone-600 dark:bg-stone-800 dark:text-stone-100 dark:focus:ring-emerald-900";
@@ -21,6 +19,9 @@ export default function ReviewPage() {
   // Visiting /review directly shows the sample, which keeps design review easy.
   const [edited, setEdited] = useState<ExtractedRecord[] | null>(null);
   const [saved, setSaved] = useState(false);
+  const [savedCount, setSavedCount] = useState(0);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const newIdCounter = useRef(0);
 
   const transcript = session?.transcript ?? mockVoiceSession.transcript;
@@ -51,9 +52,32 @@ export default function ReviewPage() {
     ]);
   }
 
-  function save() {
-    clearVoiceSession();
-    setSaved(true);
+  async function save() {
+    if (saving) return;
+    setSaving(true);
+    setSaveError(null);
+
+    try {
+      const response = await fetch("/api/records", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ records, transcript }),
+      });
+
+      if (!response.ok) {
+        setSaveError(await readError(response));
+        return;
+      }
+
+      const result = (await response.json()) as { saved?: number };
+      setSavedCount(typeof result.saved === "number" ? result.saved : records.length);
+      clearVoiceSession();
+      setSaved(true);
+    } catch {
+      setSaveError("Server tak pahunch nahi paye. Internet check karein.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   const problems = records.map(findProblem);
@@ -64,7 +88,7 @@ export default function ReviewPage() {
   );
 
   if (saved) {
-    return <SavedScreen count={records.length} totalPaise={totalPaise} />;
+    return <SavedScreen count={savedCount} totalPaise={totalPaise} />;
   }
 
   return (
@@ -103,8 +127,7 @@ export default function ReviewPage() {
 
         {records.length === 0 && (
           <p className="mb-3 rounded-xl bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900 dark:bg-amber-950 dark:text-amber-200">
-            Transcript se records banana day 3 par shuru hoga. Tab tak neeche se
-            haath se jod lein.
+            Aapki baat se koi record nahi bana. Neeche se haath se jod lein.
           </p>
         )}
 
@@ -136,17 +159,39 @@ export default function ReviewPage() {
             {formatRupees(totalPaise)}
           </span>
         </div>
+        {saveError !== null && (
+          <p
+            role="alert"
+            className="mb-3 rounded-xl bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700 dark:bg-rose-950 dark:text-rose-300"
+          >
+            {saveError}
+          </p>
+        )}
         <button
           type="button"
-          onClick={save}
-          disabled={!canSave}
+          onClick={() => void save()}
+          disabled={!canSave || saving}
           className="w-full rounded-xl bg-emerald-600 py-4 text-lg font-semibold text-white shadow-sm hover:bg-emerald-700 focus-visible:ring-4 focus-visible:ring-emerald-300 focus-visible:outline-none disabled:cursor-not-allowed disabled:bg-stone-300 disabled:text-stone-500 dark:disabled:bg-stone-700 dark:disabled:text-stone-500"
         >
-          Sahi hai, save karein
+          {saving ? "Save ho raha hai..." : "Sahi hai, save karein"}
         </button>
       </div>
     </div>
   );
+}
+
+/** Pulls the server's message out of a failed response, with a fallback. */
+async function readError(response: Response): Promise<string> {
+  try {
+    const body: unknown = await response.json();
+    if (typeof body === "object" && body !== null) {
+      const field = (body as Record<string, unknown>).error;
+      if (typeof field === "string" && field !== "") return field;
+    }
+  } catch {
+    // Fall through to the generic message.
+  }
+  return "Save nahi ho paya. Dobara koshish karein.";
 }
 
 /** Tells the shopkeeper where this transcript came from. */
@@ -212,7 +257,7 @@ function RecordCard({
     <div className="rounded-2xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-900">
       <div className="flex items-center justify-between gap-2">
         <div className="flex gap-1.5" role="group" aria-label="Kis tarah ka record">
-          {TYPES.map((type) => (
+          {TRANSACTION_TYPES.map((type) => (
             <button
               key={type}
               type="button"
@@ -267,7 +312,7 @@ function RecordCard({
                   aria-label="Unit"
                   className={`${inputClass} w-28`}
                 >
-                  {UNITS.map((unit) => (
+                  {PRODUCT_UNITS.map((unit) => (
                     <option key={unit} value={unit}>
                       {unit}
                     </option>
@@ -329,8 +374,8 @@ function SavedScreen({ count, totalPaise }: { count: number; totalPaise: number 
       <p className="text-stone-600 dark:text-stone-300">
         {count} record, kul {formatRupees(totalPaise)}
       </p>
-      <p className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-200">
-        Abhi sirf dikhane ke liye hai &mdash; database day 4 par judega.
+      <p className="text-sm text-stone-500 dark:text-stone-400">
+        Stock aur hisaab update ho gaya.
       </p>
       <Link
         href="/"

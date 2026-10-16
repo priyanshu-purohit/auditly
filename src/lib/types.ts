@@ -16,11 +16,13 @@ export type TransactionType =
   | "expense"; // kharch — only money goes out (rent, bijli, transport)
 
 /**
- * draft     = extracted from voice, not yet confirmed by the shopkeeper
- * confirmed = shopkeeper checked it and saved it
+ * confirmed = the shopkeeper checked it and saved it
  * corrected = superseded by a later correction; kept so history is never erased
+ *
+ * There is no "draft": nothing reaches the database until it is confirmed on
+ * the Review screen, so a saved row is a confirmed row.
  */
-export type TransactionStatus = "draft" | "confirmed" | "corrected";
+export type TransactionStatus = "confirmed" | "corrected";
 
 /** TODO(day 4): the original schema typed `unit` as an integer. Strings are clearer. */
 export type ProductUnit = "kg" | "litre" | "piece" | "packet";
