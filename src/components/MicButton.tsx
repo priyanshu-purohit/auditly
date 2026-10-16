@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useRef, useState } from "react";
 
-import type { TranscribeResponse } from "@/lib/types";
+import type { ExtractResponse, TranscribeResponse } from "@/lib/types";
 import { MAX_RECORDING_MS, useRecorder } from "@/lib/use-recorder";
 import { saveVoiceSession } from "@/lib/voice-session";
 
@@ -62,10 +62,15 @@ export default function MicButton() {
       }
 
       const result = (await response.json()) as TranscribeResponse;
+
+      // Ask the AI to turn the sentence into records. If this step fails the
+      // transcript still reaches the Review screen, where rows can be typed.
+      const records = await extractRecords(result.transcript);
+
       saveVoiceSession({
         transcript: result.transcript,
         mocked: result.mocked,
-        records: [],
+        records,
       });
       router.push("/review");
     } finally {
@@ -149,6 +154,25 @@ export default function MicButton() {
       )}
     </div>
   );
+}
+
+/**
+ * Turns the transcript into records. Never throws — an empty list just means
+ * the shopkeeper fills the rows in himself.
+ */
+async function extractRecords(transcript: string) {
+  try {
+    const response = await fetch("/api/extract", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ transcript }),
+    });
+    if (!response.ok) return [];
+    const result = (await response.json()) as ExtractResponse;
+    return Array.isArray(result.records) ? result.records : [];
+  } catch {
+    return [];
+  }
 }
 
 /** Pulls the server's message out of a failed response, with a fallback. */

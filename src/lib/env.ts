@@ -46,3 +46,30 @@ export function mockReason(): string | null {
   }
   return "AUDITLY_MOCK_VOICE is not set to false in .env.local";
 }
+
+// ---------------------------------------------------------------------------
+// Groq — turns a transcript into records
+// ---------------------------------------------------------------------------
+
+/**
+ * Default extraction model.
+ *
+ * Checked against this account's /v1/models on 16 Oct 2026: it has
+ * openai/gpt-oss-120b, openai/gpt-oss-20b and qwen/qwen3.8-27b — no Llama.
+ * If Hinglish results are weak, try qwen/qwen3.8-27b via GROQ_MODEL.
+ */
+const DEFAULT_GROQ_MODEL = "openai/gpt-oss-120b";
+
+export function groqApiKey(): string {
+  return (process.env.GROQ_API_KEY ?? "").trim();
+}
+
+export function groqModel(): string {
+  const value = (process.env.GROQ_MODEL ?? "").trim();
+  return value === "" ? DEFAULT_GROQ_MODEL : value;
+}
+
+/** No key means no call — the Review screen falls back to manual entry. */
+export function canExtract(): boolean {
+  return groqApiKey() !== "";
+}

@@ -99,3 +99,13 @@ export type PendingVoiceSession = {
   mocked: boolean;
   records: ExtractedRecord[];
 };
+
+/** What POST /api/extract sends back. */
+export type ExtractResponse = {
+  records: ExtractedRecord[];
+  /**
+   * false = the AI step was skipped or its answer was unusable, so the
+   * shopkeeper should type the rows by hand. Not an error.
+   */
+  extracted: boolean;
+};
