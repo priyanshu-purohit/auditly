@@ -78,3 +78,24 @@ export type VoiceSession = {
   transcript: string;
   records: ExtractedRecord[];
 };
+
+/** What POST /api/transcribe sends back. */
+export type TranscribeResponse = {
+  transcript: string;
+  /** Language ElevenLabs detected, or null when unknown. */
+  languageCode: string | null;
+  /** true = no ElevenLabs call was made, so no credits were spent. */
+  mocked: boolean;
+};
+
+/**
+ * Carried from the Home screen to the Review screen after a voice note.
+ *
+ * `records` is empty until day 3, when Groq starts extracting them from the
+ * transcript. Until then the shopkeeper adds rows by hand.
+ */
+export type PendingVoiceSession = {
+  transcript: string;
+  mocked: boolean;
+  records: ExtractedRecord[];
+};

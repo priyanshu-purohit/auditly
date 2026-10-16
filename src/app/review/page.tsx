@@ -6,6 +6,7 @@ import { useRef, useState } from "react";
 import { TYPE_LABELS, formatRupees, rupeesToPaise } from "@/lib/format";
 import { mockVoiceSession } from "@/lib/mock-data";
 import type { ExtractedRecord, ProductUnit, TransactionType } from "@/lib/types";
+import { clearVoiceSession, usePendingVoiceSession } from "@/lib/voice-session";
 
 const TYPES: TransactionType[] = ["sale", "purchase", "expense"];
 const UNITS: ProductUnit[] = ["kg", "litre", "piece", "packet"];
@@ -14,26 +15,33 @@ const inputClass =
   "rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-stone-900 placeholder:text-stone-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 focus:outline-none dark:border-stone-600 dark:bg-stone-800 dark:text-stone-100 dark:focus:ring-emerald-900";
 
 export default function ReviewPage() {
-  const [records, setRecords] = useState<ExtractedRecord[]>(mockVoiceSession.records);
+  const session = usePendingVoiceSession();
+
+  // null means "not edited yet" — then the rows come from the voice note.
+  // Visiting /review directly shows the sample, which keeps design review easy.
+  const [edited, setEdited] = useState<ExtractedRecord[] | null>(null);
   const [saved, setSaved] = useState(false);
-  const nextId = useRef(records.length + 1);
+  const newIdCounter = useRef(0);
+
+  const transcript = session?.transcript ?? mockVoiceSession.transcript;
+  const records = edited ?? session?.records ?? mockVoiceSession.records;
 
   function updateRecord(id: string, changes: Partial<ExtractedRecord>) {
-    setRecords((current) =>
-      current.map((record) => (record.id === id ? { ...record, ...changes } : record)),
+    setEdited(
+      records.map((record) => (record.id === id ? { ...record, ...changes } : record)),
     );
   }
 
   function removeRecord(id: string) {
-    setRecords((current) => current.filter((record) => record.id !== id));
+    setEdited(records.filter((record) => record.id !== id));
   }
 
   function addRecord() {
-    nextId.current += 1;
-    setRecords((current) => [
-      ...current,
+    newIdCounter.current += 1;
+    setEdited([
+      ...records,
       {
-        id: `r_${nextId.current}`,
+        id: `r_new_${newIdCounter.current}`,
         type: "sale",
         productName: "",
         quantity: "",
@@ -41,6 +49,11 @@ export default function ReviewPage() {
         amountRupees: "",
       },
     ]);
+  }
+
+  function save() {
+    clearVoiceSession();
+    setSaved(true);
   }
 
   const problems = records.map(findProblem);
@@ -70,18 +83,30 @@ export default function ReviewPage() {
       </header>
 
       <section className="rounded-2xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-900">
-        <p className="text-xs font-semibold tracking-wide text-stone-500 uppercase dark:text-stone-400">
-          Aapne kaha
-        </p>
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-xs font-semibold tracking-wide text-stone-500 uppercase dark:text-stone-400">
+            Aapne kaha
+          </p>
+          <SourceBadge session={session} />
+        </div>
         <p className="mt-2 leading-7 text-stone-800 italic dark:text-stone-200">
-          &ldquo;{mockVoiceSession.transcript}&rdquo;
+          &ldquo;{transcript}&rdquo;
         </p>
       </section>
 
       <div>
         <h2 className="mb-2 text-sm font-semibold tracking-wide text-stone-500 uppercase dark:text-stone-400">
-          {records.length} record mile &mdash; galat ho to theek kar lein
+          {records.length === 0
+            ? "Koi record nahi bana"
+            : `${records.length} record mile — galat ho to theek kar lein`}
         </h2>
+
+        {records.length === 0 && (
+          <p className="mb-3 rounded-xl bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900 dark:bg-amber-950 dark:text-amber-200">
+            Transcript se records banana day 3 par shuru hoga. Tab tak neeche se
+            haath se jod lein.
+          </p>
+        )}
 
         <div className="flex flex-col gap-3">
           {records.map((record, index) => (
@@ -113,7 +138,7 @@ export default function ReviewPage() {
         </div>
         <button
           type="button"
-          onClick={() => setSaved(true)}
+          onClick={save}
           disabled={!canSave}
           className="w-full rounded-xl bg-emerald-600 py-4 text-lg font-semibold text-white shadow-sm hover:bg-emerald-700 focus-visible:ring-4 focus-visible:ring-emerald-300 focus-visible:outline-none disabled:cursor-not-allowed disabled:bg-stone-300 disabled:text-stone-500 dark:disabled:bg-stone-700 dark:disabled:text-stone-500"
         >
@@ -121,6 +146,33 @@ export default function ReviewPage() {
         </button>
       </div>
     </div>
+  );
+}
+
+/** Tells the shopkeeper where this transcript came from. */
+function SourceBadge({
+  session,
+}: {
+  session: { mocked: boolean } | null;
+}) {
+  if (session === null) {
+    return (
+      <span className="shrink-0 rounded-full bg-stone-100 px-2.5 py-1 text-xs font-semibold text-stone-600 dark:bg-stone-800 dark:text-stone-300">
+        Sample
+      </span>
+    );
+  }
+  if (session.mocked) {
+    return (
+      <span className="shrink-0 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+        Mock — koi credit kharch nahi
+      </span>
+    );
+  }
+  return (
+    <span className="shrink-0 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+      ElevenLabs
+    </span>
   );
 }
 

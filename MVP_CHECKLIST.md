@@ -1,11 +1,15 @@
 # Auditly — MVP Checklist
 
+> **Status — day 1 of 5 (14 Oct 2026).** Home and Review screens are built,
+> tested and approved, running on mock data. No voice is recorded yet and
+> nothing is saved yet. Next: confirm ElevenLabs handles Hinglish (day 2).
+
 ## 1. Project Setup
-- [ ] Initialize the project and configure dependencies
-- [ ] Set up the Next.js application with TypeScript
-- [ ] Configure Tailwind CSS
+- [x] Initialize the project and configure dependencies
+- [x] Set up the Next.js application with TypeScript
+- [x] Configure Tailwind CSS
 - [ ] Configure environment variables
-- [ ] Establish the initial project structure
+- [x] Establish the initial project structure
 
 ## 2. Database
 - [ ] Set up the MongoDB connection
@@ -13,14 +17,14 @@
 - [ ] Test database connectivity
 
 ## 3. Core Application
-- [ ] Build the main application layout
+- [x] Build the main application layout
 - [ ] Implement shopkeeper onboarding
 - [ ] Implement product management
 - [ ] Implement sales and transaction recording
 - [ ] Display basic business summaries
 
 ## 4. Voice Interaction
-- [ ] Research free or browser-native speech recognition options
+- [x] Research free or browser-native speech recognition options
 - [ ] Implement voice input for supported commands
 - [ ] Handle Hindi and Hinglish input where supported
 - [ ] Provide a text-input fallback
