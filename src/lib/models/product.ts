@@ -41,3 +41,16 @@ export const Product: Model<ProductDoc> =
 export function toNameKey(name: string): string {
   return name.trim().toLowerCase().replace(/\s+/g, " ");
 }
+
+/**
+ * Tidies a spoken name for display: "  layz " -> "Layz".
+ *
+ * The AI is told to capitalise but does not always comply, which left the
+ * day's list showing "Cheeni" next to "layz". Only the first letter is touched
+ * — "Bijli ka bill" should not become "Bijli Ka Bill".
+ */
+export function toDisplayName(name: string): string {
+  const tidy = name.trim().replace(/\s+/g, " ");
+  if (tidy === "") return tidy;
+  return tidy[0].toUpperCase() + tidy.slice(1);
+}

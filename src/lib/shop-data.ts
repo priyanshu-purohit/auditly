@@ -1,7 +1,7 @@
 import type { Types } from "mongoose";
 
 import { connectToDatabase } from "@/lib/db";
-import { Product, toNameKey } from "@/lib/models/product";
+import { Product, toDisplayName, toNameKey } from "@/lib/models/product";
 import { DEFAULT_SHOP_SLUG, Shop, defaultShopName } from "@/lib/models/shop";
 import { Transaction } from "@/lib/models/transaction";
 import type { Paise, ProductUnit, Transaction as TransactionView } from "@/lib/types";
@@ -53,7 +53,7 @@ async function findOrCreateProduct(
 
   const product = await Product.findOneAndUpdate(
     { shopId, nameKey },
-    { $setOnInsert: { shopId, nameKey, name: name.trim(), unit, openingStock: 0 } },
+    { $setOnInsert: { shopId, nameKey, name: toDisplayName(name), unit, openingStock: 0 } },
     // returnDocument replaces the `new` option, which Mongoose 9 deprecated.
     { returnDocument: "after", upsert: true },
   ).lean();
@@ -92,7 +92,7 @@ export async function saveRecords(
       shopId: shop.id,
       type: record.type,
       productId: product?.id ?? null,
-      productName: product?.name ?? record.productName.trim(),
+      productName: product?.name ?? toDisplayName(record.productName),
       quantity: isExpense ? null : record.quantity,
       unit: isExpense ? null : record.unit,
       amountPaise: record.amountPaise,
