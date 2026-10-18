@@ -1,4 +1,5 @@
-import type { Types } from "mongoose";
+// Imported as a value, not just a type: correctRecord needs ObjectId at runtime.
+import { Types } from "mongoose";
 
 import { connectToDatabase } from "@/lib/db";
 import { Product, toDisplayName, toNameKey } from "@/lib/models/product";
@@ -153,17 +154,116 @@ export async function getToday(now: Date): Promise<TodayData> {
 
   return {
     shopName: shop.name,
-    transactions: rows.map((row) => ({
-      id: String(row._id),
-      shopId: String(row.shopId),
-      type: row.type as TransactionView["type"],
-      productId: row.productId === null ? null : String(row.productId),
-      productName: row.productName,
-      quantity: row.quantity ?? null,
-      amountPaise: row.amountPaise,
-      occurredAt: row.occurredAt.toISOString(),
-      createdAt: row.createdAt.toISOString(),
-      status: row.status as TransactionView["status"],
+    transactions: rows.map(toTransactionView),
+    products: products.map((product) => ({
+      id: String(product._id),
+      name: product.name,
+      unit: product.unit as ProductUnit,
+      openingStock: product.openingStock,
+    })),
+  };
+}
+
+/**
+ * Turns a database row into the plain shape the screens use.
+ *
+ * Shared by the day view and the history view so the two can never drift into
+ * showing the same row differently.
+ */
+function toTransactionView(row: {
+  _id: unknown;
+  shopId: unknown;
+  type: string;
+  productId: unknown;
+  productName: string;
+  quantity: number | null;
+  amountPaise: number;
+  occurredAt: Date;
+  createdAt: Date;
+  status: string;
+}): TransactionView {
+  return {
+    id: String(row._id),
+    shopId: String(row.shopId),
+    type: row.type as TransactionView["type"],
+    productId: row.productId === null ? null : String(row.productId),
+    productName: row.productName,
+    quantity: row.quantity ?? null,
+    amountPaise: row.amountPaise,
+    occurredAt: row.occurredAt.toISOString(),
+    createdAt: row.createdAt.toISOString(),
+    status: row.status as TransactionView["status"],
+  };
+}
+
+/**
+ * A date key like "2026-10-16" in the server's own timezone.
+ *
+ * Built from the calendar fields rather than slicing an ISO string, because an
+ * ISO string is UTC — at 2am IST that would report yesterday's date.
+ */
+function localDateKey(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+export type HistoryDay = {
+  /** "2026-10-16" */
+  dateKey: string;
+  transactions: TransactionView[];
+};
+
+/** How many days back the History screen looks. */
+export const HISTORY_DAYS = 30;
+
+/**
+ * Past days, newest first.
+ *
+ * Unlike the day view this includes rows marked "corrected". History that
+ * quietly hides what was changed is not history — the screen shows them
+ * struck through, next to their replacement.
+ */
+export async function getHistory(
+  now: Date,
+  dayCount: number = HISTORY_DAYS,
+): Promise<{ shopName: string; days: HistoryDay[]; products: ProductView[] }> {
+  const shop = await getOrCreateShop();
+
+  const { end } = dayBounds(now);
+  const start = new Date(end);
+  start.setDate(start.getDate() - dayCount);
+
+  const [rows, products] = await Promise.all([
+    Transaction.find({
+      shopId: shop.id,
+      occurredAt: { $gte: start, $lt: end },
+    })
+      .sort({ occurredAt: -1 })
+      .limit(1000)
+      .lean(),
+    Product.find({ shopId: shop.id }).sort({ name: 1 }).limit(500).lean(),
+  ]);
+
+  // Group into days. The rows arrive newest first, so the days come out in
+  // order too and no sorting is needed afterwards.
+  const byDay = new Map<string, TransactionView[]>();
+  for (const row of rows) {
+    const key = localDateKey(row.occurredAt);
+    const bucket = byDay.get(key);
+    if (bucket === undefined) {
+      byDay.set(key, [toTransactionView(row)]);
+    } else {
+      bucket.push(toTransactionView(row));
+    }
+  }
+
+  return {
+    shopName: shop.name,
+    days: [...byDay.entries()].map(([dateKey, transactions]) => ({
+      dateKey,
+      transactions,
     })),
     products: products.map((product) => ({
       id: String(product._id),
@@ -172,4 +272,65 @@ export async function getToday(now: Date): Promise<TodayData> {
       openingStock: product.openingStock,
     })),
   };
+}
+
+/**
+ * Replaces a record without erasing it.
+ *
+ * A new row is written and the old one is marked "corrected", pointing at its
+ * replacement. The shopkeeper's book is append-only: anyone can see that a
+ * change happened and what it was. Silently editing a ledger is how people
+ * stop trusting it.
+ *
+ * The replacement keeps the ORIGINAL occurredAt. Fixing yesterday's sale must
+ * not move it into today's takings.
+ */
+export async function correctRecord(
+  transactionId: string,
+  replacement: RecordToSave,
+): Promise<{ ok: true; newId: string } | { ok: false; error: string }> {
+  if (!Types.ObjectId.isValid(transactionId)) {
+    return { ok: false, error: "Record ka ID galat hai." };
+  }
+
+  const shop = await getOrCreateShop();
+
+  const original = await Transaction.findOne({
+    _id: new Types.ObjectId(transactionId),
+    shopId: shop.id,
+  }).lean();
+
+  if (original === null) {
+    return { ok: false, error: "Record mila nahi." };
+  }
+  if (original.status === "corrected") {
+    return { ok: false, error: "Yeh record pehle hi badla gaya hai." };
+  }
+
+  const isExpense = replacement.type === "expense";
+  const product =
+    isExpense || replacement.unit === null
+      ? null
+      : await findOrCreateProduct(shop.id, replacement.productName, replacement.unit);
+
+  const created = await Transaction.create({
+    shopId: shop.id,
+    type: replacement.type,
+    productId: product?.id ?? null,
+    productName: product?.name ?? toDisplayName(replacement.productName),
+    quantity: isExpense ? null : replacement.quantity,
+    unit: isExpense ? null : replacement.unit,
+    amountPaise: replacement.amountPaise,
+    occurredAt: original.occurredAt,
+    status: "confirmed",
+    correctedBy: null,
+    transcript: original.transcript,
+  });
+
+  await Transaction.updateOne(
+    { _id: original._id },
+    { $set: { status: "corrected", correctedBy: created._id } },
+  );
+
+  return { ok: true, newId: String(created._id) };
 }

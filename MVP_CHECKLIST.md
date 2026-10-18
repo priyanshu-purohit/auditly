@@ -5,6 +5,9 @@
 > screen, save to MongoDB Atlas, Home shows the real figures and stock, and
 > ElevenLabs reads the day back in Hindi. README written.
 >
+> A History screen was added after that: past days are viewable, and a past
+> record can be corrected without erasing the original.
+>
 > Two items stay unticked on purpose — shopkeeper onboarding and a product
 > management screen. Both are listed under "Not built" in the README with the
 > reasoning, rather than half-built before the deadline.

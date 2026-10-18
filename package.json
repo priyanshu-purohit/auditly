@@ -9,7 +9,8 @@
     "lint": "eslint",
     "check:extract": "node scripts/check-extract.mjs",
     "check:db": "node scripts/check-db.mjs",
-    "db:inspect": "node scripts/db-inspect.mjs"
+    "db:inspect": "node scripts/db-inspect.mjs",
+    "check:history": "node scripts/check-history.mjs"
   },
   "dependencies": {
     "mongoose": "^9.11.2",

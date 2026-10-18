@@ -1,13 +1,9 @@
 import { isDatabaseConfigured } from "@/lib/db";
-import { rupeesToPaise } from "@/lib/format";
 import { type RecordToSave, saveRecords } from "@/lib/shop-data";
-import type { ProductUnit, TransactionType } from "@/lib/types";
-import { PRODUCT_UNITS, TRANSACTION_TYPES } from "@/lib/units";
+import { validateRecord } from "@/lib/validate-record";
 
 const MAX_RECORDS = 20;
 const MAX_TRANSCRIPT_CHARS = 1000;
-/** ₹10,00,000 in paise — a sanity ceiling, not a business rule. */
-const MAX_AMOUNT_PAISE = 100_000_000;
 
 function fail(status: number, message: string) {
   return Response.json({ error: message }, { status });
@@ -45,7 +41,7 @@ export async function POST(request: Request) {
   // Validate every row before touching the database — all or nothing.
   const toSave: RecordToSave[] = [];
   for (const [index, raw] of fields.records.entries()) {
-    const checked = validateRecord(raw, index);
+    const checked = validateRecord(raw, `Record ${index + 1}`);
     if (typeof checked === "string") return fail(400, checked);
     toSave.push(checked);
   }
@@ -57,45 +53,4 @@ export async function POST(request: Request) {
     console.error("[records] save failed:", cause);
     return fail(502, "Save nahi ho paya. Dobara koshish karein.");
   }
-}
-
-/** Returns a clean record, or a message naming what is wrong with row `index`. */
-function validateRecord(raw: unknown, index: number): RecordToSave | string {
-  const position = `Record ${index + 1}`;
-
-  if (typeof raw !== "object" || raw === null) return `${position}: galat shape.`;
-  const fields = raw as Record<string, unknown>;
-
-  const type = TRANSACTION_TYPES.find((candidate) => candidate === fields.type);
-  if (type === undefined) return `${position}: type galat hai.`;
-
-  const productName = typeof fields.productName === "string" ? fields.productName.trim() : "";
-  if (productName === "") return `${position}: naam khali hai.`;
-  if (productName.length > 120) return `${position}: naam bahut lamba hai.`;
-
-  const amountPaise = rupeesToPaise(
-    typeof fields.amountRupees === "string" ? fields.amountRupees : "",
-  );
-  if (!Number.isInteger(amountPaise) || amountPaise <= 0) {
-    return `${position}: rakam galat hai.`;
-  }
-  if (amountPaise > MAX_AMOUNT_PAISE) return `${position}: rakam bahut badi hai.`;
-
-  if (type === "expense") {
-    return { type, productName, quantity: null, unit: null, amountPaise };
-  }
-
-  const quantity = Number.parseFloat(
-    typeof fields.quantity === "string" ? fields.quantity : "",
-  );
-  if (!Number.isFinite(quantity) || quantity <= 0) {
-    return `${position}: quantity galat hai.`;
-  }
-
-  const unit: ProductUnit | undefined = PRODUCT_UNITS.find(
-    (candidate) => candidate === fields.unit,
-  );
-  if (unit === undefined) return `${position}: unit galat hai.`;
-
-  return { type: type as TransactionType, productName, quantity, unit, amountPaise };
 }

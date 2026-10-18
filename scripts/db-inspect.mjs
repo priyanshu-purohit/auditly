@@ -26,16 +26,29 @@ function readEnv(name) {
   return "";
 }
 
-const uri = readEnv("MONGODB_URI");
+/**
+ * A real environment variable beats the .env.local value, the same way
+ * Next.js resolves them.
+ *
+ * This matters: `MONGODB_DB=auditly_tmp npm run check:history` points the test
+ * at a throwaway database, and this script is what performs the wipe. Reading
+ * only .env.local here would wipe the real database instead.
+ */
+function setting(name) {
+  const fromEnv = (process.env[name] ?? "").trim();
+  return fromEnv === "" ? readEnv(name) : fromEnv;
+}
+
+const uri = setting("MONGODB_URI");
 if (uri === "") {
   console.error("MONGODB_URI is empty in .env.local");
   process.exit(1);
 }
 
-await mongoose.connect(uri, {
-  dbName: readEnv("MONGODB_DB") || "auditly",
-  serverSelectionTimeoutMS: 8000,
-});
+const dbName = setting("MONGODB_DB") || "auditly";
+console.log(`database: ${dbName}`);
+
+await mongoose.connect(uri, { dbName, serverSelectionTimeoutMS: 8000 });
 const db = mongoose.connection.db;
 
 for (const name of ["shops", "products", "transactions"]) {

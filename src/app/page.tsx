@@ -39,6 +39,13 @@ export default function HomePage() {
         <TodayRecords />
       </Suspense>
 
+      <Link
+        href="/history"
+        className="rounded-xl border border-stone-200 bg-white px-4 py-3.5 text-center text-sm font-medium text-stone-700 hover:bg-stone-100 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-200 dark:hover:bg-stone-800"
+      >
+        Purane records dekhein
+      </Link>
+
       <footer className="mt-auto pt-4 text-center text-xs text-stone-400 dark:text-stone-500">
         Voice by ElevenLabs
       </footer>

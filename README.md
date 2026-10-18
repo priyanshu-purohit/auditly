@@ -52,8 +52,11 @@ Nothing is ever saved without being shown first.
   records, never a stored counter that can drift.
 - **Builds its own catalogue** — say "cheeni" and the product appears. Say it
   differently next week and it matches the same product instead of making a second one.
-- **Never overwrites history** — a correction adds a new record and marks the old one
-  `corrected`. A book you can secretly edit isn't a book.
+- **Keeps past days** — the History screen lists the last 30 days, with each day's
+  takings and spending.
+- **Never overwrites history** — correcting a past record adds a new one and marks the
+  old one `corrected`, struck through next to its replacement. Day totals count the
+  replacement only. A book you can secretly edit isn't a book.
 - **Speaks the day back** — in Hindi, through ElevenLabs.
 - **Says "cash", not "profit"** — the summary shows money in minus money out, and says
   plainly on screen that this is not profit, because the cost of goods sold isn't
@@ -167,12 +170,21 @@ Start the app, then:
 ```bash
 npm run check:extract   # 8 cases: Devanagari, mixed script, decimals, rate × quantity
 npm run check:db        # 14 cases: validation, saving, reading the day back
+npm run check:history   # 20 cases: a correction never destroys the original
 npm run db:inspect      # what is in the database
 npm run db:inspect -- --wipe   # clear records (keeps the shop)
 ```
 
-`check:extract` is free and safe to run anytime. `check:db` **wipes records**, so it
-refuses to run if the database already holds any unless you pass `--force`.
+`check:extract` is free and safe anytime — it never writes.
+
+`check:db` and `check:history` **wipe every record first** so their totals are
+predictable, so both refuse to run when the database already holds any. Point the app
+at a throwaway database to run them safely:
+
+```bash
+MONGODB_DB=auditly_tmp npm run dev
+MONGODB_DB=auditly_tmp npm run check:history
+```
 
 ## Layout
 
@@ -181,12 +193,14 @@ src/
 ├── app/
 │   ├── page.tsx              Home — summary, listen, mic, today's records
 │   ├── review/page.tsx       Review — transcript, editable records, save
+│   ├── history/page.tsx      History — past days, with safe corrections
 │   └── api/
 │       ├── transcribe/       audio → text   (ElevenLabs)
 │       ├── extract/          text → records (Groq)
 │       ├── records/          save confirmed records
+│       ├── records/correct/  replace a record without erasing it
 │       └── speak/            today's figures → Hindi speech (ElevenLabs)
-├── components/               MicButton, SpeakButton, SummaryCards, ...
+├── components/               MicButton, SpeakButton, HistoryList, ...
 └── lib/
     ├── models/               Mongoose schemas: shop, product, transaction
     ├── shop-data.ts          saving and reading
