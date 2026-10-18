@@ -232,9 +232,14 @@ Honest list:
   to rename or delete one.
 - **No profit.** Requires cost-of-goods tracking. The UI says so rather than guessing.
 
+## Licence
+
+MIT — see [LICENSE](LICENSE). Use it, fork it, sell it.
+
 ## Credits
 
 Voice by **[ElevenLabs](https://elevenlabs.io)** — speech-to-text and text-to-speech.
-Extraction by **[Groq](https://groq.com)**.
+Understanding by **`openai/gpt-oss-120b`**, an open-weight model, served through
+**[Groq](https://groq.com)**.
 
 Built for Hacktoberfest 2026.
