@@ -59,20 +59,23 @@ export default function HomePage() {
  * Wrapped in React cache() so the three Suspense boundaries below share a
  * single query instead of hitting Atlas three times per page load.
  *
- * connection() is awaited first because new Date() is request-time data —
- * Cache Components refuses to prerender a clock read. Everything below runs
- * once per request, inside the Suspense boundaries above.
+ * new Date() is safe in here only because every caller awaits connection()
+ * first — Cache Components refuses to prerender a clock read.
+ *
+ * connection() deliberately lives in the callers, NOT in here, and must never
+ * sit inside a try/catch. While prerendering, its promise is meant to hang so
+ * React can abandon the static pass and defer this subtree to request time.
+ * Catching that rejection turns a normal bail-out into a fake "database is
+ * down" error on the page.
  */
-const loadToday = cache(async () => {
-  await connection();
-  return getToday(new Date());
-});
+const loadToday = cache(async () => getToday(new Date()));
 
 async function ShopHeader() {
   // Resolve the name first, then render — building JSX inside try/catch hides
   // render errors from the error boundary.
   let name = "Auditly";
   if (isDatabaseConfigured()) {
+    await connection();
     try {
       const data = await loadToday();
       name = data.shopName;
@@ -98,6 +101,8 @@ function Header({ name }: { name: string }) {
 
 async function TodaySummary() {
   if (!isDatabaseConfigured()) return <SetupNotice />;
+
+  await connection();
 
   let data;
   try {
@@ -158,6 +163,8 @@ async function TodaySummary() {
 
 async function TodayRecords() {
   if (!isDatabaseConfigured()) return null;
+
+  await connection();
 
   let data;
   try {
